@@ -1,6 +1,6 @@
-"""SXMViewer - live view of every parameter AnfatecSXMBridge reads from Femto_28_4.exe.
+"""AnfatecSXMBridgeMonitor - live display of the values AnfatecSXMBridge reads from the SXM GUI.
 
-    python SXMViewer.py
+    python AnfatecSXMBridgeMonitor.py
 
 "Save JSON..." writes exactly the snapshot currently on screen. Values that
 changed since the previous read are highlighted; sections that could not be
@@ -52,7 +52,7 @@ def _nodes(parameters: dict) -> list:
     return rows
 
 
-class Viewer:
+class Monitor:
     def __init__(self, root: tk.Tk, bridge: AnfatecSXMBridge):
         self.root, self.bridge = root, bridge
         self.snapshot = None
@@ -63,7 +63,7 @@ class Viewer:
         self.busy = False
         self.last_read = 0.0
 
-        root.title('SXM parameters - Femto_28_4.exe')
+        root.title('AnfatecSXMBridge Monitor - Femto_28_4.exe')
         root.geometry('720x820')
 
         bar = ttk.Frame(root, padding=(8, 8, 8, 4))
@@ -213,7 +213,7 @@ class Viewer:
 
 def main():
     root = tk.Tk()
-    Viewer(root, AnfatecSXMBridge(strict=False))
+    Monitor(root, AnfatecSXMBridge(strict=False))
     root.mainloop()
 
 

@@ -23,7 +23,7 @@ top-to-bottom), never by HWND or current value. With ``strict=True``
 unparseable status raises SXMBridgeError instead of returning a guess.
 
 Run ``python AnfatecSXMBridge.py`` to print and save a snapshot, or
-``python SXMViewer.py`` for a live view.
+``python AnfatecSXMBridgeMonitor.py`` for a live view.
 """
 from __future__ import annotations
 
