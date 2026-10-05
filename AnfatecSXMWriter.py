@@ -30,6 +30,10 @@ an explicit ``commit=``: never guessed.
 Every write re-reads the path through the bridge and raises SXMWriteError unless the
 GUI shows the requested value. That proves SXM's GUI took the value, not that the
 hardware followed it; check that once per field on the instrument.
+
+Master copy: anfatec_code/AnfatecSXMWriter.py in the author's development folder.
+sxm_ncafm_control ships a copy next to its copy of AnfatecSXMBridge.py; make
+changes in the master, not in the copy.
 """
 from __future__ import annotations
 
@@ -40,8 +44,12 @@ import time
 from collections.abc import Mapping
 from typing import Any
 
-from AnfatecSXMBridge import (AnfatecSXMBridge, Control, SXMBridgeError, SXMPathError, SECTIONS, _ULONG_PTR, _find_section,
-                              _norm, _num, _parent, _snake, _text, _user32, SMTO_ABORTIFHUNG)
+try:                                   # inside a package (sxm_ncafm_control)
+    from .AnfatecSXMBridge import (AnfatecSXMBridge, Control, SXMBridgeError, SXMPathError, SECTIONS, _ULONG_PTR,
+                                   _find_section, _norm, _num, _parent, _snake, _text, _user32, SMTO_ABORTIFHUNG)
+except ImportError:                    # stand-alone, next to AnfatecSXMBridge.py
+    from AnfatecSXMBridge import (AnfatecSXMBridge, Control, SXMBridgeError, SXMPathError, SECTIONS, _ULONG_PTR,
+                                  _find_section, _norm, _num, _parent, _snake, _text, _user32, SMTO_ABORTIFHUNG)
 
 __all__ = ['AnfatecSXMWriter', 'SXMWriteError', 'EDIT_COMMIT']
 
