@@ -64,7 +64,7 @@ except ImportError:                    # stand-alone, next to AnfatecSXMBridge.p
     from AnfatecSXMBridge import (AnfatecSXMBridge, Control, SXMBridgeError, SXMPathError, SECTIONS, _ULONG_PTR,
                                   _find_section, _norm, _num, _parent, _snake, _text, _user32, _walk, SMTO_ABORTIFHUNG)
 
-__all__ = ['AnfatecSXMWriter', 'SXMWriteError', 'PARAMS', 'GROUPS', 'EDIT_COMMIT', 'Param', 'Group', 'main']
+__all__ = ['AnfatecSXMWriter', 'SXMWriteError', 'PARAMS', 'GROUPS', 'EDIT_COMMIT', 'VERIFIED', 'Param', 'Group', 'main']
 
 WM_SETTEXT = 0x000C
 WM_COMMAND = 0x0111
@@ -174,6 +174,9 @@ PARAMS: dict[str, tuple[str, str]] = {
 # Edit fields whose commit is verified on the instrument: short name -> 'change' | 'enter'.
 # e.g. 'dnc.drive': 'enter'
 EDIT_COMMIT: dict[str, str] = {}
+
+# Names whose write was confirmed on the instrument to take effect (not just to show in the GUI).
+VERIFIED: set[str] = {'dnc.output_gain'}
 
 
 def _path_key(path: str) -> str:
