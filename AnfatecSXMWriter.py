@@ -105,6 +105,7 @@ _DNC_EDIT = _DNC + '.unmapped_numeric_controls.{}.value'
 
 # Short name -> (bridge path, description). Names follow sxm_ncafm_control/sxm_state.py.
 # Values are in SXM's GUI units. "DDE ..." = the same parameter is also writable over DDE.
+# "(status bar)" entries are computed by SXM: readable, not writable.
 PARAMS: dict[str, tuple[str, str]] = {
     'amp.ref':           ('Amplitude feedback.Ref', 'amplitude setpoint (DDE ScanPara Edit23)'),
     'amp.ki':            ('Amplitude feedback.Ki', 'amplitude loop integral gain (DDE Edit24)'),
@@ -124,6 +125,9 @@ PARAMS: dict[str, tuple[str, str]] = {
     'dnc.sweep_stop':    (_DNC_EDIT.format(1), 'sweep stop, Hz (DDE DNCPara 2; by position, unconfirmed)'),
     'dnc.used_freq':     (_DNC_EDIT.format(2), 'used frequency f0, Hz (DDE DNCPara 3; by position, unconfirmed)'),
     'dnc.drive':         (_DNC_EDIT.format(3), 'drive (DDE DNCPara 4; by position, unconfirmed)'),
+    'dnc.q':             (_DNC + '.q', 'quality factor Q (status bar)'),
+    'dnc.f_peak':        (_DNC + '.f_peak', 'resonance peak frequency, Hz (status bar)'),
+    'dnc.tau_us':        (_DNC + '.tau_us', 'ring-down time Q/(pi fPeak), us (status bar)'),
 
     'topo.ref':          ('Topography feedback.Ref', 'topography setpoint'),
     'topo.ki':           ('Topography feedback.Ki', 'topography integral gain'),
@@ -339,12 +343,13 @@ class AnfatecSXMWriter:
         try:
             node = self.bridge.control(path)
         except SXMPathError:
-            group = name.split('.')[0].strip().lower()
-            if group in GROUPS and path == name:
-                raise SXMPathError(f'{name!r}: unknown name. In {group!r}: {", ".join(self.names(group))}') from None
             try:
                 self.bridge.get(path)
-            except SXMBridgeError:
+            except SXMPathError:
+                group = name.split('.')[0].strip().lower()
+                if group in GROUPS and path == name:
+                    raise SXMPathError(f'{name!r}: unknown name. In {group!r}: '
+                                       f'{", ".join(self.names(group))}') from None
                 raise                               # not a path at all: keep the bridge's message
             raise SXMWriteError(f'{name!r} is derived by SXM (e.g. from the status bar), not a control; '
                                 'it cannot be written') from None
@@ -391,7 +396,15 @@ class AnfatecSXMWriter:
 
     def describe(self, name: str) -> str:
         """Everything about one parameter: description, SXM location, value, what it accepts."""
-        read_path, c = self._control(name)
+        try:
+            read_path, c = self._control(name)
+        except SXMWriteError:                               # derived value: readable, no control
+            path = self._path(name)
+            value, short = self.bridge.get(path), self._short(path)
+            return '\n'.join([f'{short}: {PARAMS[short][1]}' if short else path,
+                              f'  SXM path : {path}',
+                              f'  value    : {value!r}',
+                              '  read-only: computed by SXM, there is no control to set'])
         short = self._short(read_path)
         label = short or read_path
         lines = [f'{short}: {PARAMS[short][1]}' if short else read_path,
@@ -419,8 +432,12 @@ class AnfatecSXMWriter:
                 try:
                     if isinstance(values[head], Exception):
                         raise values[head]
-                    value, c = _walk(values[head], rest, head), _walk(trees[head], rest, head)
-                    rows.append((n, repr(value), self._how(path, c, 44), PARAMS[n][1]))
+                    value = _walk(values[head], rest, head)
+                    try:
+                        how = self._how(path, _walk(trees[head], rest, head), 44)
+                    except SXMPathError:
+                        how = 'read-only (derived by SXM)'
+                    rows.append((n, repr(value), how, PARAMS[n][1]))
                 except (SXMBridgeError, RuntimeError):
                     rows.append((n, 'n/a', '', PARAMS[n][1]))
             closed = [v for v in values.values() if isinstance(v, Exception)]
