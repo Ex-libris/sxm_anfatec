@@ -21,7 +21,7 @@ from pathlib import Path
 from AnfatecSXMBridge import SECTIONS, AnfatecSXMBridge, SXMBridgeError, _walk
 from AnfatecSXMWriter import EDIT_COMMIT, GROUPS, PARAMS, VERIFIED, AnfatecSXMWriter, SXMWriteError
 
-_KIND_WORDS = {'edit': 'number', 'combo': 'dropdown', 'check': 'tick box', 'choice': 'radio'}
+_KIND_WORDS = {'edit': 'number', 'combo': 'dropdown', 'check': 'tick box', 'choice': 'radio', 'button': 'button'}
 
 
 def _dde(description: str) -> str:
@@ -78,6 +78,8 @@ def _live(w: AnfatecSXMWriter | None, name: str, snapshot: dict | None = None) -
         accepts = f"number, commit '{commit}'" if commit else "number, needs `commit=`"
     elif kind == 'check':
         accepts = 'True / False'
+    elif kind == 'button':
+        accepts = f"press: `w.press('{name}')`"
     else:
         accepts = ' / '.join(f'`{o}`' for o in w.options(name))
     return _KIND_WORDS[kind], accepts, value

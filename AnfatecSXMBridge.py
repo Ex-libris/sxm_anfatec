@@ -201,6 +201,14 @@ def _group(parent: int, caption: str) -> int:
     return groups[0]
 
 
+def _tab(parent: int, caption: str) -> int:
+    """The one TTabSheet captioned ``caption``. Controls on hidden tabs exist too and read normally."""
+    tabs = [h for h in _children(parent) if _cls(h) == 'TTabSheet' and _norm(_text(h)) == _norm(caption)]
+    if len(tabs) != 1:
+        raise RuntimeError(f'Expected one tab {caption!r}, found {len(tabs)}')
+    return tabs[0]
+
+
 def _direct(parent: int, control_class: str) -> list:
     """Direct children of one class, ordered top-to-bottom."""
     return sorted((h for h in _children(parent, True) if _cls(h) == control_class), key=_top)
@@ -261,8 +269,10 @@ def _inventory(form: int) -> dict:
 class Control(NamedTuple):
     """The GUI control behind one parameter, located structurally at one moment.
 
-    ``kind`` is ``'edit'``, ``'combo'``, ``'check'`` or ``'choice'`` (a set of radio
-    buttons whose value is the caption of the checked one). ``hwnds`` holds the one
+    ``kind`` is ``'edit'``, ``'combo'``, ``'check'``, ``'choice'`` (a set of radio
+    buttons whose value is the caption of the checked one) or ``'button'`` (a push
+    button such as the lock-in ``Auto``; it holds no value, so it reads as its
+    caption). ``hwnds`` holds the one
     control, or the buttons of a choice. HWNDs are not identities: locate again for
     every access.
     """
@@ -287,10 +297,16 @@ def _choice(hwnds: list) -> Control:
     return Control('choice', tuple(hwnds))
 
 
+def _button(h: int) -> Control:
+    return Control('button', (h,))
+
+
 def _value(c: Control) -> Any:
     h = c.hwnds[0] if c.hwnds else 0
     if c.kind == 'edit':
         return _num(_text(h))
+    if c.kind == 'button':
+        return _text(h)
     if c.kind == 'combo':
         return _num(_text(h)) if c.numeric else _text(h)
     if c.kind == 'check':
@@ -344,6 +360,15 @@ class Win32Backend:
 
     def lockin(self) -> dict:
         return _resolve(self._locate_lockin())
+
+    def lockin_options(self) -> dict:
+        return _resolve(self._locate_lockin_options())
+
+    def spectroscopy_options(self) -> dict:
+        return _resolve(self._locate_spectroscopy_options())
+
+    def z_feedback(self) -> dict:
+        return _resolve(self._locate_z_feedback())
 
     def dynamic_non_contact(self) -> dict:
         return _resolve(self._locate_dynamic_non_contact())
@@ -420,24 +445,88 @@ class Win32Backend:
         return out
 
     def _locate_lockin(self) -> dict:
+        # Layout confirmed by the capture of 2026-10-08 (dev/sxm_sts_control/capture_20261008), where
+        # distinct values were typed into every field. Delphi names from Anfatec's Language Description p. 9.
         f = _form('TMultiLockInForm')
         out = {}
         for caption, key in (('TimeConstant t', 'TimeConstant'), ('RollOff', 'RollOff')):
             combos = _direct(_group(f, caption), 'TComboBox')
             out[key] = _combo(combos[0]) if combos else None
+        for caption in ('Input Gain InB', 'Output Channel', 'Show'):
+            out[caption] = _choice(_direct(_group(f, caption), 'TRadioButton'))
         for n in (1, 2, 3):
             g = _group(f, f'Lia {n}')
             edits, combos = _direct(g, 'TEdit'), _direct(g, 'TComboBox')
-            d = {'Link': _combo(combos[0]) if combos else None}
-            if edits:
-                d['Value1'] = _edit(edits[0])
-            # The phase edit sits in a nested 'Phase' group.
+            # Lia1: frequency (Edit1) above amplitude (Edit2, V rms); Lia2/3: frequency only.
+            if len(edits) != (2 if n == 1 else 1):
+                raise RuntimeError(f'Lia {n} layout changed ({len(edits)} edits)')
+            d = {'Link': _combo(combos[0]) if combos else None, 'Value1': _edit(edits[0])}
+            if n == 1:
+                d['Amplitude'] = _edit(edits[1])
+            # The phase edit and the Auto button sit in a nested 'Phase' group.
             phases = [h for h in _children(g) if _cls(h) == 'TGroupBox' and _norm(_text(h)) == 'phase']
             if phases:
-                pe = _direct(phases[0], 'TEdit')
+                pe, pb = _direct(phases[0], 'TEdit'), _direct(phases[0], 'TButton')
                 d['Phase'] = _edit(pe[0]) if pe else None
+                d['Auto'] = _button(pb[0]) if len(pb) == 1 and _norm(_text(pb[0])) == 'auto' else None
             out[f'Lia{n}'] = d
+        # The two 'Numbers' displays: a channel dropdown on a panel each, left then right.
+        # Their numbers are painted, not text, so only the channel choice is readable.
+        displays = sorted((h for h in _children(f) if _cls(h) == 'TComboBox' and _cls(_parent(h)) == 'TPanel'),
+                          key=lambda h: _rect(h)[0])
+        if len(displays) == 2:
+            out['Display'] = [_combo(h) for h in displays]
         return out
+
+    def _locate_lockin_options(self) -> dict:
+        # 'Multi Channel LockIn Options' (not 'LockIn Options', which belongs to the DNC / qPlus lock-in).
+        combos = _direct(_group(_form('TMultiLockInOptionForm'), 'Lockin'), 'TComboBox')
+        if len(combos) != 1:
+            raise RuntimeError('Multi Channel LockIn Options layout changed')
+        return {'Lockin': _combo(combos[0])}
+
+    def _locate_z_feedback(self) -> dict:
+        # Tab 'z' of the Parameter window: Ref, Ki, Kp, Bias top to bottom (Delphi Edit1, Edit5, Edit6, Edit2).
+        # Units follow the labels next to them, which Win32 cannot read.
+        f = _form('TScanParaForm')
+        edits = _direct(_tab(f, 'z'), 'TEdit')
+        if len(edits) != 4:
+            raise RuntimeError('z feedback layout changed')
+        out = dict(zip(('Ref', 'Ki', 'Kp', 'Bias'), map(_edit, edits)))
+        status = _direct(f, 'TStatusBar')
+        out['Status'] = _text(status[0]) if status else ''
+        return out
+
+    def _locate_spectroscopy_options(self) -> dict:
+        f = _form('TSpektOptionForm')
+        acquire, cycle, delays = _tab(f, 'Acquire'), _tab(f, 'Cycle'), _tab(f, 'Delays')
+        a_edits, a_combos = _direct(acquire, 'TEdit'), _direct(acquire, 'TComboBox')
+        if len(a_edits) != 2 or len(a_combos) != 1:
+            raise RuntimeError('Spectroscopy Options Acquire layout changed')
+        g = _group(cycle, 'Cycle')
+        n_edit, c_checks = _direct(g, 'TEdit'), _direct(cycle, 'TCheckBox')
+        sine = [h for h in _direct(g, 'TCheckBox') if _norm(_text(h)) == 'sine']
+        d_edits = _direct(delays, 'TEdit')
+        if len(n_edit) != 1 or len(c_checks) != 1 or len(d_edits) != 8:
+            raise RuntimeError('Spectroscopy Options Cycle/Delays layout changed')
+        second = [h for h in _direct(delays, 'TCheckBox') if _norm(_text(h)) == '2nd set parameter']
+        return {
+            'DataPoints': _combo(a_combos[0], numeric=True),
+            # Below DataPoints, as in the STS manual's screenshot: 'max. Averages', then 'Stop on SNR [db]'.
+            'max Averages': _edit(a_edits[0]),
+            'Stop on SNR': _edit(a_edits[1]),
+            'Channel(s)': _choice(_direct(_group(acquire, 'Channel(s)'), 'TRadioButton')),
+            'Cycle': _choice(_direct(g, 'TRadioButton')),
+            'N': _edit(n_edit[0]),
+            'sine': _check(sine[0]) if sine else None,
+            'Lead In and Out': _check(c_checks[0]),
+            # Delays tab: the 3rd edit from the top took the DeadTime typed in the capture (3.3).
+            # The other seven have no readable caption yet: kept by position, not named.
+            'DeadTime': _edit(d_edits[2]),
+            '2nd set parameter': _check(second[0]) if second else None,
+            'unmapped_numeric_controls': [{'value': _edit(h), 'rect': _rect(h)}
+                                          for i, h in enumerate(d_edits) if i != 2],
+        }
 
     # -- forms located over all their controls, in enumeration order --
 
@@ -581,7 +670,7 @@ class _Spec(NamedTuple):
     aliases: tuple = ()
 
 
-_LIA = tuple(f'Lia{n}.{f}' for n in (1, 2, 3) for f in ('Link', 'Value1', 'Phase'))
+_LIA = tuple(f'Lia{n}.{f}' for n in (1, 2, 3) for f in ('Link', 'Value1', 'Phase')) + ('Lia1.Amplitude',)
 
 SECTIONS = (
     _Spec('Scan', 'scan', 'scan', ('Range', 'Speed', 'Pixel', 'x-Center', 'y-Center', 'Angle')),
@@ -589,9 +678,14 @@ SECTIONS = (
     _Spec('Amplitude feedback', 'amplitude', 'amplitude', ('Ref', 'Ki', 'Kp', 'Pull back at', 'Pull Speed', 'Tau')),
     _Spec('PLL', 'pll', 'pll', ('Kp', 'Ki')),
     _Spec('zControl', 'zcontrol', 'zcontrol', ('Feedback Off', 'dz', 'dz per Mouse Tick', 'Slew Rate')),
-    _Spec('Multi Channel LockIn', 'lockin', 'lockin', ('TimeConstant', 'RollOff') + _LIA),
+    _Spec('z feedback', 'z_feedback', 'z_feedback', ('Ref', 'Ki', 'Kp', 'Bias'), aliases=('stm',)),
+    _Spec('Multi Channel LockIn', 'lockin', 'lockin',
+          ('TimeConstant', 'RollOff', 'Input Gain InB', 'Output Channel', 'Show') + _LIA),
+    _Spec('Multi Channel LockIn Options', 'lockin_options', 'lockin_options', ('Lockin',)),
     _Spec('Spectroscopy', 'spectroscopy', 'spectroscopy',
           ('X', 'Y', 'Delay1', 'AguT', 'dz', 'U Start', 'U Stop', 'Mode', 'Acquire')),
+    _Spec('Spectroscopy Options', 'spectroscopy_options', 'spectroscopy_options',
+          ('DataPoints', 'Cycle', 'N', 'Lead In and Out', 'DeadTime')),
     _Spec('Dynamic Non-Contact R / Phi', 'dynamic', 'dynamic_non_contact',
           ('Input Gain InA', 'TimeConstant', 'RollOff', 'Range', 'Status', 'unmapped_numeric_controls'),
           _add_dnc_status, ('dnc',)),
@@ -767,8 +861,11 @@ class AnfatecSXMBridge:
     amplitude = property(lambda self: self.section('Amplitude feedback'))
     pll = property(lambda self: self.section('PLL'))
     zcontrol = property(lambda self: self.section('zControl'))
+    z_feedback = property(lambda self: self.section('z feedback'))
     lockin = property(lambda self: self.section('Multi Channel LockIn'))
+    lockin_options = property(lambda self: self.section('Multi Channel LockIn Options'))
     spectroscopy = property(lambda self: self.section('Spectroscopy'))
+    spectroscopy_options = property(lambda self: self.section('Spectroscopy Options'))
     dynamic = property(lambda self: self.section('Dynamic Non-Contact R / Phi'))
     feedback = property(lambda self: self.section('Feedback mode'))
     scanner = property(lambda self: self.section('Scanner'))

@@ -33,6 +33,7 @@ sent to that one control. No mouse, keyboard input, focus or foreground change.
 
 - combo:          CB_SETCURSEL, then CBN_SELCHANGE to the parent  -> VCL OnChange/OnSelect
 - check, choice:  BN_CLICKED to the parent                        -> VCL toggles/checks it, OnClick
+- button:         BN_CLICKED to the parent, with ``w.press(name)`` -> VCL OnClick (e.g. lock-in Auto phase)
 - edit:           WM_SETTEXT (EN_CHANGE)                          -> VCL OnChange
                   commit='enter' also posts an Enter key to the edit, for fields SXM only applies on Enter.
 
@@ -41,8 +42,10 @@ instrument and then recorded in EDIT_COMMIT. Until then ``set`` refuses an edit 
 an explicit ``commit=``: never guessed.
 
 Every write re-reads the path through the bridge and raises SXMWriteError unless the
-GUI shows the requested value. That proves SXM's GUI took the value, not that the
-hardware followed it; check that once per field on the instrument.
+GUI shows the requested value (within ``TOLERANCE`` for fields SXM rounds, such as the
+lock-in phases). That proves SXM's GUI took the value, not that the hardware followed it;
+check that once per field on the instrument. A button press has nothing to read back:
+its caller checks the effect (``Auto`` changes the phase).
 
 Master copy: anfatec_code/AnfatecSXMWriter.py in the author's development folder.
 sxm_ncafm_control ships a copy next to its copy of AnfatecSXMBridge.py; make
@@ -64,7 +67,7 @@ except ImportError:                    # stand-alone, next to AnfatecSXMBridge.p
     from AnfatecSXMBridge import (AnfatecSXMBridge, Control, SXMBridgeError, SXMPathError, SECTIONS, _ULONG_PTR,
                                   _find_section, _norm, _num, _parent, _snake, _text, _user32, _walk, SMTO_ABORTIFHUNG)
 
-__all__ = ['AnfatecSXMWriter', 'SXMWriteError', 'PARAMS', 'GROUPS', 'EDIT_COMMIT', 'VERIFIED', 'Param', 'Group', 'main']
+__all__ = ['AnfatecSXMWriter', 'SXMWriteError', 'PARAMS', 'GROUPS', 'EDIT_COMMIT', 'TOLERANCE', 'VERIFIED', 'Param', 'Group', 'main']
 
 WM_SETTEXT = 0x000C
 WM_COMMAND = 0x0111
@@ -93,6 +96,7 @@ GROUPS = {
     'topo': 'Topography feedback',
     'scan': 'Scan',
     'z': 'zControl',
+    'stm': 'z feedback (STM; Parameter window, tab z)',
     'lockin': 'Multi Channel LockIn',
     'spec': 'Spectroscopy',
     'feedback': 'Feedback mode',
@@ -145,11 +149,28 @@ PARAMS: dict[str, tuple[str, str]] = {
     'z.dz_per_tick':     ('zControl.dz per Mouse Tick', 'dz per mouse tick'),
     'z.slew_rate':       ('zControl.Slew Rate', 'slew rate'),
 
-    'lockin.tc':         ('Multi Channel LockIn.TimeConstant', 'lock-in time constant t'),
-    'lockin.rolloff':    ('Multi Channel LockIn.RollOff', 'lock-in roll-off'),
+    'stm.ref':           ('z feedback.Ref', 'STM current setpoint (DDE FeedPara Ref; unit as its label shows)'),
+    'stm.ki':            ('z feedback.Ki', 'STM z-feedback integral gain (DDE FeedPara Ki)'),
+    'stm.kp':            ('z feedback.Kp', 'STM z-feedback proportional gain (DDE FeedPara Kp)'),
+    'stm.bias':          ('z feedback.Bias', 'bias (DDE FeedPara Bias; unit as its label shows)'),
+    'stm.status':        ('z feedback.Status', 'Parameter window status, e.g. "Piezo Retracted" (status bar)'),
+
+    'lockin.tc':         ('Multi Channel LockIn.TimeConstant', 'lock-in time constant t (shared by Lia1-3)'),
+    'lockin.rolloff':    ('Multi Channel LockIn.RollOff', 'lock-in roll-off (shared by Lia1-3)'),
+    'lockin.input_gain': ('Multi Channel LockIn.Input Gain InB', 'input gain InB, 1 / 10'),
+    'lockin.output':     ('Multi Channel LockIn.Output Channel', 'reference output: Ref B (Kelvin) for STS'),
+    'lockin.show':       ('Multi Channel LockIn.Show', 'display mode, Numbers / Spectrum'),
+    'lockin.display_left':  ('Multi Channel LockIn.Display.0', 'channel of the left Numbers display'),
+    'lockin.display_right': ('Multi Channel LockIn.Display.1', 'channel of the right Numbers display'),
+    'lockin.lia1_amp':   ('Multi Channel LockIn.Lia1.Amplitude',
+                          'Lia 1 modulation amplitude, V rms at the oscillator (divided by the bias range)'),
     **{f'lockin.lia{n}_{key}': (f'Multi Channel LockIn.Lia{n}.{field}', f'Lia {n} {what}')
-       for n in (1, 2, 3) for key, field, what in (('link', 'Link', 'link'), ('value', 'Value1', 'Value1'),
-                                                    ('phase', 'Phase', 'phase'))},
+       for n in (1, 2, 3) for key, field, what in (('link', 'Link', 'frequency link'),
+                                                    ('value', 'Value1', 'frequency, Hz'),
+                                                    ('phase', 'Phase', 'phase, deg'),
+                                                    ('auto', 'Auto', 'Auto phase button'))},
+    'lockin.input':      ('Multi Channel LockIn Options.Lockin',
+                          'Multi Channel LockIn Options, gen. Lockin tab: the "Lockin" dropdown (shows T-B; what it selects is not known yet)'),
 
     'spec.x':            ('Spectroscopy.X', 'X'),
     'spec.y':            ('Spectroscopy.Y', 'Y'),
@@ -160,6 +181,15 @@ PARAMS: dict[str, tuple[str, str]] = {
     'spec.u_stop':       ('Spectroscopy.U Stop', 'bias sweep stop'),
     'spec.mode':         ('Spectroscopy.Mode', 'spectroscopy mode'),
     **{f'spec.acquire{n}': (f'Spectroscopy.Acquire.{n - 1}', f'acquired channel {n}') for n in (1, 2, 3, 4)},
+    'spec.data_points':  ('Spectroscopy Options.DataPoints', 'DataPoints (Options, Acquire tab)'),
+    'spec.max_averages': ('Spectroscopy Options.max Averages', 'max. Averages (Options, Acquire tab; by position)'),
+    'spec.stop_on_snr':  ('Spectroscopy Options.Stop on SNR', 'Stop on SNR, dB (Options, Acquire tab; by position)'),
+    'spec.channels':     ('Spectroscopy Options.Channel(s)', 'number of acquired channels (Options, Acquire tab)'),
+    'spec.cycle':        ('Spectroscopy Options.Cycle', 'cycle: 1/2, full, N, Load Ramp (Options, Cycle tab)'),
+    'spec.n_cycles':     ('Spectroscopy Options.N', 'number of cycles for cycle N (Options, Cycle tab)'),
+    'spec.lead_in_out':  ('Spectroscopy Options.Lead In and Out', '"Lead In and Out" tick box (Options, Cycle tab)'),
+    'spec.dead_time':    ('Spectroscopy Options.DeadTime', 'DeadTime (Options, Delays tab, 3rd field; identified by value)'),
+    'spec.second_set':   ('Spectroscopy Options.2nd set parameter', '"2nd set parameter" tick box (Options, Delays tab)'),
 
     'feedback.mode':     ('Feedback mode.Mode', 'feedback mode'),
 
@@ -174,6 +204,15 @@ PARAMS: dict[str, tuple[str, str]] = {
 # Edit fields whose commit is verified on the instrument: short name -> 'change' | 'enter'.
 # e.g. 'dnc.drive': 'enter'
 EDIT_COMMIT: dict[str, str] = {}
+
+# Edit fields SXM rounds on entry: short name -> largest |shown - requested| accepted as written.
+# Seen in the capture of 2026-10-08: phases 45.67 -> 45.73, 22.22 -> 22.16, 33.33 -> 33.41 deg;
+# AquT 12.3 -> 12.288 ms; Lia1 amplitude shown with 3 decimals in V (0.0123 -> 0.012).
+TOLERANCE: dict[str, float] = {
+    'lockin.lia1_phase': 0.15, 'lockin.lia2_phase': 0.15, 'lockin.lia3_phase': 0.15,
+    'lockin.lia1_amp': 0.0005,
+    'spec.agu_t': 0.6,
+}
 
 # Names whose write was confirmed on the instrument to take effect (not just to show in the GUI).
 VERIFIED: set[str] = {'dnc.output_gain'}
@@ -269,11 +308,11 @@ def _edit_text(value: Any, current: str) -> str:
     return text
 
 
-def _same(kind: str, shown: Any, wanted: Any) -> bool:
+def _same(kind: str, shown: Any, wanted: Any, tol: float = 0.0) -> bool:
     if kind == 'edit':
         a, b = _num(str(shown).replace(',', '.')), _num(str(wanted).replace(',', '.'))
         if isinstance(a, float) and isinstance(b, float):
-            return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-300)
+            return abs(a - b) <= tol or math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-300)
         return str(shown) == str(wanted)
     if kind == 'check':
         return shown is wanted
@@ -372,11 +411,12 @@ class AnfatecSXMWriter:
         return self.bridge.get(self._path(name))
 
     def kind(self, name: str) -> str:
-        """``'edit'`` (number), ``'combo'`` (dropdown), ``'check'`` (tick box) or ``'choice'`` (radio buttons)."""
+        """``'edit'`` (number), ``'combo'`` (dropdown), ``'check'`` (tick box), ``'choice'`` (radio buttons)
+        or ``'button'`` (pressed with ``press``)."""
         return self._control(name)[1].kind
 
     def options(self, name: str) -> list | None:
-        """Dropdown items, radio captions, ``[False, True]`` for a tick box, None for a number field."""
+        """Dropdown items, radio captions, ``[False, True]`` for a tick box, None for a number field or button."""
         _, c = self._control(name)
         if c.kind == 'combo':
             return _combo_items(c.hwnds[0])
@@ -394,6 +434,8 @@ class AnfatecSXMWriter:
             return f'number (commit {commit!r})' if commit else "number, needs commit='change'|'enter'"
         if c.kind == 'check':
             return 'True / False'
+        if c.kind == 'button':
+            return 'press with w.press(name)'
         opts = ' | '.join(map(str, _combo_items(c.hwnds[0]) if c.kind == 'combo' else [_text(h) for h in c.hwnds]))
         return opts if width is None or len(opts) <= width else opts[:width - 3] + '...'
 
@@ -473,6 +515,8 @@ class AnfatecSXMWriter:
         """
         read_path, c = self._control(name)
         label = self._short(read_path) or read_path
+        if c.kind == 'button':
+            raise SXMWriteError(f'{label} is a button: use press({label!r})')
         before = self.bridge.get(read_path)
         h, sent = c.hwnds[0], []
 
@@ -532,16 +576,33 @@ class AnfatecSXMWriter:
             raise SXMWriteError(f'{label} is disabled (greyed out) in SXM; nothing sent')
 
         act()
+        tol = TOLERANCE.get(self._short(read_path) or '', 0.0)
         deadline = time.monotonic() + settle
         while True:
             after = self.bridge.get(read_path)
-            if _same(c.kind, after, wanted) or time.monotonic() > deadline:
+            if _same(c.kind, after, wanted, tol) or time.monotonic() > deadline:
                 break
             time.sleep(0.05)
         result['after'] = after
-        if not _same(c.kind, after, wanted):
+        if not _same(c.kind, after, wanted, tol):
             raise SXMWriteError(f'{label}: sent {wanted!r} but SXM shows {after!r} (was {before!r}); '
                                 f'SXM rejected or changed the value', result)
+        return result
+
+    def press(self, name: str, *, dry_run: bool = False) -> dict:
+        """Press a button (``lockin.lia1_auto``). Nothing can be read back from a button: the caller
+        checks its effect. Returns ``{'name', 'path', 'kind', 'sent'}``."""
+        read_path, c = self._control(name)
+        label = self._short(read_path) or read_path
+        if c.kind != 'button':
+            raise SXMWriteError(f'{label} is a {_KINDS[c.kind]}, not a button: use set()')
+        h = c.hwnds[0]
+        result = {'name': label, 'path': read_path, 'kind': 'button', 'sent': [f'BN_CLICKED {_text(h)!r} to parent']}
+        if dry_run:
+            return result
+        if not _user32.IsWindowEnabled(h):
+            raise SXMWriteError(f'{label} is disabled (greyed out) in SXM; nothing sent')
+        _notify(h, BN_CLICKED)
         return result
 
 
@@ -560,6 +621,9 @@ class Param:
 
     def set(self, value: Any, **kwargs) -> dict:
         return self._writer.set(self.name, value, **kwargs)
+
+    def press(self, **kwargs) -> dict:
+        return self._writer.press(self.name, **kwargs)
 
     def __repr__(self):
         try:
@@ -589,7 +653,8 @@ class Group:
         return self._writer.table(self._group)
 
 
-_KINDS = {'edit': 'number field', 'combo': 'dropdown', 'check': 'tick box', 'choice': 'radio buttons'}
+_KINDS = {'edit': 'number field', 'combo': 'dropdown', 'check': 'tick box', 'choice': 'radio buttons',
+          'button': 'button'}
 
 _USAGE = """examples:
   python AnfatecSXMWriter.py                       every parameter: value, accepted values, meaning
@@ -598,7 +663,8 @@ _USAGE = """examples:
   python AnfatecSXMWriter.py dnc.tc "3 ms"         show what would be sent (nothing is sent)
   python AnfatecSXMWriter.py dnc.tc "3 ms" --apply
   python AnfatecSXMWriter.py z.feedback_off on --apply
-  python AnfatecSXMWriter.py dnc.drive 0.5 --commit enter --apply"""
+  python AnfatecSXMWriter.py dnc.drive 0.5 --commit enter --apply
+  python AnfatecSXMWriter.py lockin.lia1_auto press --apply"""
 
 
 def main(argv: list | None = None) -> None:
@@ -625,6 +691,12 @@ def main(argv: list | None = None) -> None:
             print(w.describe(args.name))
         else:
             value: Any = args.value
+            if w.kind(args.name) == 'button':
+                if value.lower() != 'press':
+                    raise SXMWriteError(f'{args.name} is a button: give "press", not {value!r}')
+                r = w.press(args.name, dry_run=not args.apply)
+                print(f'{r["name"]}: ' + ('pressed' if args.apply else f'would send {r["sent"]}\nNothing sent; add --apply.'))
+                return
             if w.kind(args.name) == 'check':
                 truth = {'on': True, 'true': True, '1': True, 'yes': True,
                          'off': False, 'false': False, '0': False, 'no': False}
