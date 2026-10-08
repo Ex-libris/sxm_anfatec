@@ -160,8 +160,8 @@ PARAMS: dict[str, tuple[str, str]] = {
     'lockin.input_gain': ('Multi Channel LockIn.Input Gain InB', 'input gain InB, 1 / 10'),
     'lockin.output':     ('Multi Channel LockIn.Output Channel', 'reference output: Ref B (Kelvin) for STS'),
     'lockin.show':       ('Multi Channel LockIn.Show', 'display mode, Numbers / Spectrum'),
-    'lockin.display_left':  ('Multi Channel LockIn.Display.0', 'channel of the left Numbers display'),
-    'lockin.display_right': ('Multi Channel LockIn.Display.1', 'channel of the right Numbers display'),
+    'lockin.disp_left':     ('Multi Channel LockIn.Display.0', 'channel of the left Numbers display'),
+    'lockin.disp_right':    ('Multi Channel LockIn.Display.1', 'channel of the right Numbers display'),
     'lockin.lia1_amp':   ('Multi Channel LockIn.Lia1.Amplitude',
                           'Lia 1 modulation amplitude, V rms at the oscillator (divided by the bias range)'),
     **{f'lockin.lia{n}_{key}': (f'Multi Channel LockIn.Lia{n}.{field}', f'Lia {n} {what}')
