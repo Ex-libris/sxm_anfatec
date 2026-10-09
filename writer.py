@@ -161,7 +161,9 @@ PARAMS: dict[str, tuple[str, str]] = {
     'lockin.disp_left':     ('Multi Channel LockIn.Display.0', 'channel of the left Numbers display'),
     'lockin.disp_right':    ('Multi Channel LockIn.Display.1', 'channel of the right Numbers display'),
     'lockin.lia1_amp':   ('Multi Channel LockIn.Lia1.Amplitude',
-                          'Lia 1 modulation amplitude, V rms at the oscillator (divided by the bias range)'),
+                          'Lia 1 modulation amplitude, rms at the oscillator (divided by the bias range), IN THE UNIT '
+                          'ON ITS LABEL (uV / mV / V: click the label to change it, Shift+click the other way; '
+                          'Win32 cannot read the label)'),
     **{f'lockin.lia{n}_{key}': (f'Multi Channel LockIn.Lia{n}.{field}', f'Lia {n} {what}')
        for n in (1, 2, 3) for key, field, what in (('link', 'Link', 'frequency link'),
                                                     ('value', 'Value1', 'frequency, Hz'),

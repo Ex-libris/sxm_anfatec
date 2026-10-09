@@ -111,7 +111,7 @@ Column notes:
 | `lockin.show` | display mode, Numbers / Spectrum | ? | ? | ? | untested on instrument |  | `Multi Channel LockIn.Show` |
 | `lockin.disp_left` | channel of the left Numbers display | ? | ? | ? | untested on instrument |  | `Multi Channel LockIn.Display.0` |
 | `lockin.disp_right` | channel of the right Numbers display | ? | ? | ? | untested on instrument |  | `Multi Channel LockIn.Display.1` |
-| `lockin.lia1_amp` | Lia 1 modulation amplitude, V rms at the oscillator (divided by the bias range) | ? | ? | ? | untested on instrument |  | `Multi Channel LockIn.Lia1.Amplitude` |
+| `lockin.lia1_amp` | Lia 1 modulation amplitude, rms at the oscillator (divided by the bias range), IN THE UNIT ON ITS LABEL (uV / mV / V: click the label to change it, Shift+click the other way; Win32 cannot read the label) | ? | ? | ? | untested on instrument |  | `Multi Channel LockIn.Lia1.Amplitude` |
 | `lockin.lia1_link` | Lia 1 frequency link | ? | ? | 'no link' | untested on instrument |  | `Multi Channel LockIn.Lia1.Link` |
 | `lockin.lia1_value` | Lia 1 frequency, Hz | ? | ? | 0.0 | confirmed |  | `Multi Channel LockIn.Lia1.Value1` |
 | `lockin.lia1_phase` | Lia 1 phase, deg | ? | ? | 150.01 | confirmed |  | `Multi Channel LockIn.Lia1.Phase` |
