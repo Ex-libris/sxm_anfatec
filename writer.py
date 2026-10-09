@@ -196,8 +196,12 @@ PARAMS: dict[str, tuple[str, str]] = {
 }
 
 # Edit fields whose commit is verified on the instrument: short name -> 'change' | 'enter'.
-# e.g. 'dnc.drive': 'enter'
-EDIT_COMMIT: dict[str, str] = {}
+# phase0_check 2026-10-09 (tip retracted): with 'change' the GUI showed the value but the
+# lock-in did not follow (noise floor / signal phase unchanged); with 'enter' it did.
+EDIT_COMMIT: dict[str, str] = {
+    'lockin.lia1_value': 'enter',
+    'lockin.lia1_phase': 'enter',
+}
 
 # Edit fields SXM rounds on entry: short name -> largest |shown - requested| accepted as written.
 # Seen in the capture of 2026-10-08: phases 45.67 -> 45.73, 22.22 -> 22.16, 33.33 -> 33.41 deg;
@@ -209,7 +213,8 @@ TOLERANCE: dict[str, float] = {
 }
 
 # Names whose write was confirmed on the instrument to take effect (not just to show in the GUI).
-VERIFIED: set[str] = {'dnc.output_gain'}
+VERIFIED: set[str] = {'dnc.output_gain',
+                      'lockin.lia1_value', 'lockin.lia1_phase', 'lockin.lia1_auto'}   # phase0_check 2026-10-09
 
 
 def _path_key(path: str) -> str:
@@ -473,9 +478,11 @@ class AnfatecSXMWriter:
                         raise values[head]
                     value = _walk(values[head], rest, head)
                     try:
-                        how = self._how(path, _walk(trees[head], rest, head), 44)
+                        node = _walk(trees[head], rest, head)
                     except SXMPathError:
-                        how = 'read-only (derived by SXM)'
+                        node = None
+                    # A leaf that is not a Control (status bar text, parsed values) is read-only.
+                    how = self._how(path, node, 44) if isinstance(node, Control) else 'read-only (derived by SXM)'
                     rows.append((n, repr(value), how, PARAMS[n][1]))
                 except (SXMBridgeError, RuntimeError):
                     rows.append((n, 'n/a', '', PARAMS[n][1]))
