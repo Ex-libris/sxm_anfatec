@@ -77,6 +77,9 @@ measurement.
 
 - `bridge`: used on the instrument by sxm_ncafm_control.
 - `writer`: `dnc.output_gain` confirmed to take effect on the instrument. Other kinds
-  of control are tested only against a stand-in process. Number fields need an explicit
-  `commit='change'|'enter'` until each is confirmed and recorded in `EDIT_COMMIT`.
+  of control are tested only against a stand-in process. Number fields are typed and then
+  committed with Enter by default (`commit='change'` types without Enter): many SXM fields
+  only apply a value on Enter, while showing it either way. Confirmed on the instrument:
+  Lia1 frequency and phase (Enter needed). Watch the first Enter write into each window
+  not used this way yet: in Delphi, Enter can also trigger a window's default button.
 - `dde`, `driver`: used on the instrument by sxm_ncafm_control.

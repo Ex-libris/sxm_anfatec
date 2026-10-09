@@ -18,7 +18,7 @@ Set it:
     w.set('dnc.tc', '3 ms')                    # dropdown, by item text
     w.dnc.output_gain.set('±1')                # radio buttons, by caption ('+-1' also accepted)
     w.set('z.feedback_off', True)              # tick box
-    w.set('dnc.drive', 0.5, commit='enter')    # number field (see commit below)
+    w.set('dnc.drive', 0.5)                    # number field: typed, then Enter (see commit below)
     w.set('pll.ki', 2e4, dry_run=True)         # show what would be sent, send nothing
 
 The short names (``PARAMS``, below, grouped by SXM window in ``GROUPS``) follow
@@ -35,11 +35,15 @@ sent to that one control. No mouse, keyboard input, focus or foreground change.
 - check, choice:  BN_CLICKED to the parent                        -> VCL toggles/checks it, OnClick
 - button:         BN_CLICKED to the parent, with ``w.press(name)`` -> VCL OnClick (e.g. lock-in Auto phase)
 - edit:           WM_SETTEXT (EN_CHANGE)                          -> VCL OnChange
-                  commit='enter' also posts an Enter key to the edit, for fields SXM only applies on Enter.
+                  then (commit='enter', the default) an Enter key posted to the edit.
 
-Which commit an edit needs is a property of SXM, established once per field on the
-instrument and then recorded in EDIT_COMMIT. Until then ``set`` refuses an edit without
-an explicit ``commit=``: never guessed.
+Number fields are committed with Enter unless told otherwise (DEFAULT_COMMIT): many SXM
+fields only apply a typed value on Enter, and SXM shows a typed value even when it did
+not apply it, so the read-back alone cannot tell. EDIT_COMMIT records per field what was
+confirmed on the instrument, and holds the exceptions ('change': no Enter). Pass
+``commit='change'`` to type without Enter. In Delphi, Enter can also trigger a window's
+default button: the first Enter write into a window not yet used this way should be
+watched on the instrument (Lock-in window: nothing else happens).
 
 Every write re-reads the path through the bridge and raises SXMWriteError unless the
 GUI shows the requested value (within ``TOLERANCE`` for fields SXM rounds, such as the
@@ -61,7 +65,7 @@ from typing import Any
 from .bridge import (AnfatecSXMBridge, Control, SXMBridgeError, SXMPathError, SECTIONS, _ULONG_PTR,
                      _find_section, _norm, _num, _parent, _snake, _text, _user32, _walk, SMTO_ABORTIFHUNG)
 
-__all__ = ['AnfatecSXMWriter', 'SXMWriteError', 'PARAMS', 'GROUPS', 'EDIT_COMMIT', 'TOLERANCE', 'VERIFIED', 'Param', 'Group', 'main']
+__all__ = ['AnfatecSXMWriter', 'SXMWriteError', 'PARAMS', 'GROUPS', 'DEFAULT_COMMIT', 'EDIT_COMMIT', 'TOLERANCE', 'VERIFIED', 'Param', 'Group', 'main']
 
 WM_SETTEXT = 0x000C
 WM_COMMAND = 0x0111
@@ -195,7 +199,11 @@ PARAMS: dict[str, tuple[str, str]] = {
     'scope.x_axis':      ('Oscilloscope.x_axis_values.0', 'x-axis value'),
 }
 
-# Edit fields whose commit is verified on the instrument: short name -> 'change' | 'enter'.
+# How number fields are committed when neither EDIT_COMMIT nor the caller says otherwise.
+DEFAULT_COMMIT = 'enter'
+
+# Edit fields whose commit was confirmed on the instrument, and exceptions to DEFAULT_COMMIT:
+# short name -> 'change' | 'enter'.
 # phase0_check 2026-10-09 (tip retracted): with 'change' the GUI showed the value but the
 # lock-in did not follow (noise floor / signal phase unchanged); with 'enter' it did.
 EDIT_COMMIT: dict[str, str] = {
@@ -423,14 +431,16 @@ class AnfatecSXMWriter:
             return [_text(h) for h in c.hwnds]
         return [False, True] if c.kind == 'check' else None
 
-    def _commit(self, read_path: str) -> str | None:
-        return EDIT_COMMIT.get(self._short(read_path) or '')
+    def _commit(self, read_path: str) -> str:
+        return EDIT_COMMIT.get(self._short(read_path) or '', DEFAULT_COMMIT)
 
     def _how(self, read_path: str, c: Control, width: int | None = None) -> str:
         """What the control accepts, in words."""
         if c.kind == 'edit':
             commit = self._commit(read_path)
-            return f'number (commit {commit!r})' if commit else "number, needs commit='change'|'enter'"
+            how = 'Enter' if commit == 'enter' else 'no Enter'
+            confirmed = (self._short(read_path) or '') in EDIT_COMMIT
+            return f'number ({how}, {"confirmed" if confirmed else "default"})'
         if c.kind == 'check':
             return 'True / False'
         if c.kind == 'button':
@@ -524,9 +534,7 @@ class AnfatecSXMWriter:
         if c.kind == 'edit':
             commit = commit or self._commit(read_path)
             if commit not in ('change', 'enter'):
-                raise SXMWriteError(f"{label}: how SXM commits this edit is not established. Pass "
-                                    f"commit='change' or commit='enter' (check on the instrument which one "
-                                    f"takes effect), then record it in EDIT_COMMIT[{label!r}].")
+                raise SXMWriteError(f"{label}: commit must be 'change' or 'enter', not {commit!r}")
             wanted = _edit_text(value, _text(h))
             sent.append(f'WM_SETTEXT {wanted!r}')
             if commit == 'enter':
@@ -664,7 +672,8 @@ _USAGE = """examples:
   python -m sxm_anfatec.writer dnc.tc "3 ms"         show what would be sent (nothing is sent)
   python -m sxm_anfatec.writer dnc.tc "3 ms" --apply
   python -m sxm_anfatec.writer z.feedback_off on --apply
-  python -m sxm_anfatec.writer dnc.drive 0.5 --commit enter --apply
+  python -m sxm_anfatec.writer dnc.drive 0.5 --apply                 (typed, then Enter)
+  python -m sxm_anfatec.writer dnc.drive 0.5 --commit change --apply  (typed, no Enter)
   python -m sxm_anfatec.writer lockin.lia1_auto press --apply"""
 
 
@@ -681,7 +690,7 @@ def main(argv: list | None = None) -> None:
     ap.add_argument('name', nargs='?', help='group (dnc) or parameter (dnc.tc); omit to list everything')
     ap.add_argument('value', nargs='?', help='new value; only shown, not sent, unless --apply')
     ap.add_argument('--apply', action='store_true', help='send the new value to SXM')
-    ap.add_argument('--commit', choices=('change', 'enter'), help='for number fields')
+    ap.add_argument('--commit', choices=('change', 'enter'), help="number fields: 'enter' (default) or 'change' (no Enter)")
     args = ap.parse_args(argv)
 
     w = AnfatecSXMWriter(AnfatecSXMBridge(strict=False))

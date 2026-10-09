@@ -4,7 +4,7 @@
     python -m sxm_anfatec.examples.write_dnc --apply                       # dnc.tc -> next option, verify, restore
     python -m sxm_anfatec.examples.write_dnc --apply --name dnc.output_gain --value "±1"
     python -m sxm_anfatec.examples.write_dnc --apply --name amp.tau
-    python -m sxm_anfatec.examples.write_dnc --apply --name dnc.drive --value 0.0 --commit enter
+    python -m sxm_anfatec.examples.write_dnc --apply --name dnc.drive --value 0.0
 
 Names: ``python -m sxm_anfatec.writer`` lists them all. Without --value the next option of
 a dropdown / radio group (or the other state of a tick box) is used. The original value
@@ -21,7 +21,7 @@ def main():
     ap.add_argument('--name', '--path', dest='name', default='dnc.tc',
                     help='short name (dnc.tc, amp.tau, dnc.output_gain, ...) or bridge path')
     ap.add_argument('--value', help='target value (default: next option)')
-    ap.add_argument('--commit', choices=('change', 'enter'), help='required for number fields')
+    ap.add_argument('--commit', choices=('change', 'enter'), help="number fields: 'enter' (default) or 'change' (no Enter)")
     ap.add_argument('--apply', action='store_true', help='actually send; otherwise dry run')
     ap.add_argument('--hold', type=float, default=3.0, help='seconds before restoring the original value')
     args = ap.parse_args()
@@ -41,7 +41,7 @@ def main():
         i = [str(o) for o in options].index(str(before))
         target = options[i + 1] if i + 1 < len(options) else options[i - 1]
     else:
-        raise SystemExit('Number field: give --value (and --commit).')
+        raise SystemExit('Number field: give --value.')
 
     plan = w.set(args.name, target, commit=args.commit, dry_run=True)
     print(f'\nplan: {plan["before"]!r} -> {plan["requested"]!r} via {plan["sent"]}')
