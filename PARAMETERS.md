@@ -17,7 +17,7 @@ from sxm_anfatec import AnfatecSXMWriter
 w = AnfatecSXMWriter()
 w.get('dnc.tc'); w.dnc.tc.options
 w.set('dnc.tc', '3 ms')
-w.set('dnc.drive', 0.5, commit='enter')   # number fields need commit= until listed in EDIT_COMMIT
+w.set('dnc.drive', 0.5)                   # number field: typed, then Enter (commit='change': no Enter)
 ```
 
 The bridge path works wherever a name does, and is what `AnfatecSXMBridge.get()` reads.

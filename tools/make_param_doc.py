@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 from ..bridge import SECTIONS, AnfatecSXMBridge, SXMBridgeError, _walk
-from ..writer import EDIT_COMMIT, GROUPS, PARAMS, VERIFIED, AnfatecSXMWriter, SXMWriteError
+from ..writer import DEFAULT_COMMIT, EDIT_COMMIT, GROUPS, PARAMS, VERIFIED, AnfatecSXMWriter, SXMWriteError
 
 _KIND_WORDS = {'edit': 'number', 'combo': 'dropdown', 'check': 'tick box', 'choice': 'radio', 'button': 'button'}
 
@@ -78,8 +78,9 @@ def _live(w: AnfatecSXMWriter | None, name: str, snapshot: dict | None = None) -
     except SXMBridgeError:
         return '?', '?', value
     if kind == 'edit':
-        commit = EDIT_COMMIT.get(name)
-        accepts = f"number, commit '{commit}'" if commit else "number, needs `commit=`"
+        commit = EDIT_COMMIT.get(name, DEFAULT_COMMIT)
+        how = 'Enter' if commit == 'enter' else 'no Enter'
+        accepts = f"number ({how}, {'confirmed' if name in EDIT_COMMIT else 'default'})"
     elif kind == 'check':
         accepts = 'True / False'
     elif kind == 'button':
@@ -139,7 +140,7 @@ def build() -> str:
         'w = AnfatecSXMWriter()',
         "w.get('dnc.tc'); w.dnc.tc.options",
         "w.set('dnc.tc', '3 ms')",
-        "w.set('dnc.drive', 0.5, commit='enter')   # number fields need commit= until listed in EDIT_COMMIT",
+        "w.set('dnc.drive', 0.5)                   # number field: typed, then Enter (commit='change': no Enter)",
         '```',
         '',
         'The bridge path works wherever a name does, and is what `AnfatecSXMBridge.get()` reads.',
