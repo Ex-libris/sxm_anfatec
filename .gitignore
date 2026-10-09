@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+SXM_snapshot_*.json
+SXM_discovery_*.json

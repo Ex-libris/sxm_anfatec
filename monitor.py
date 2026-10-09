@@ -1,6 +1,6 @@
 """AnfatecSXMBridgeMonitor - live display of the values AnfatecSXMBridge reads from the SXM GUI.
 
-    python AnfatecSXMBridgeMonitor.py
+    python -m sxm_anfatec.monitor
 
 "Save JSON..." writes exactly the snapshot currently on screen. Values that
 changed since the previous read are highlighted; sections that could not be
@@ -18,7 +18,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog, ttk
 
-from AnfatecSXMBridge import AnfatecSXMBridge
+from .bridge import AnfatecSXMBridge
 
 
 def _fmt(value) -> str:

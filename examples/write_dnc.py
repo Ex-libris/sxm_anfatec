@@ -1,19 +1,19 @@
 """Example: change one SXM parameter through AnfatecSXMWriter, check it, and put it back.
 
-    python example_write_dnc.py                               # look only: sends nothing
-    python example_write_dnc.py --apply                       # dnc.tc -> next option, verify, restore
-    python example_write_dnc.py --apply --name dnc.output_gain --value "±1"
-    python example_write_dnc.py --apply --name amp.tau
-    python example_write_dnc.py --apply --name dnc.drive --value 0.0 --commit enter
+    python -m sxm_anfatec.examples.write_dnc                               # look only: sends nothing
+    python -m sxm_anfatec.examples.write_dnc --apply                       # dnc.tc -> next option, verify, restore
+    python -m sxm_anfatec.examples.write_dnc --apply --name dnc.output_gain --value "±1"
+    python -m sxm_anfatec.examples.write_dnc --apply --name amp.tau
+    python -m sxm_anfatec.examples.write_dnc --apply --name dnc.drive --value 0.0 --commit enter
 
-Names: ``python AnfatecSXMWriter.py`` lists them all. Without --value the next option of
+Names: ``python -m sxm_anfatec.writer`` lists them all. Without --value the next option of
 a dropdown / radio group (or the other state of a tick box) is used. The original value
 is always restored after --hold seconds, also on Ctrl+C.
 """
 import argparse
 import time
 
-from AnfatecSXMWriter import GROUPS, AnfatecSXMWriter, SXMWriteError
+from ..writer import GROUPS, AnfatecSXMWriter, SXMWriteError
 
 
 def main():

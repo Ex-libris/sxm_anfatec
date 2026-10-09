@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sxm_anfatec"
+version = "0.1.0"
+description = "Python access to the Anfatec SXM controller software: read and set its GUI, DDE commands, fast channel I/O"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["pywin32; platform_system=='Windows'"]
+
+[project.urls]
+Homepage = "https://github.com/Ex-libris/sxm_anfatec"
+
+# The repository folder is the package itself (like sxm_ncafm_control), so that
+# putting the folder next to a program is enough to import it, without installing.
+[tool.setuptools]
+package-dir = {"sxm_anfatec" = "."}
+packages = ["sxm_anfatec", "sxm_anfatec.tools", "sxm_anfatec.examples"]
+
+[tool.setuptools.package-data]
+sxm_anfatec = ["PARAMETERS.md", "VERSION"]

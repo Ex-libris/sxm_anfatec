@@ -2,11 +2,11 @@
 
 Find a parameter:
 
-    python AnfatecSXMWriter.py                 # every parameter: name, value, accepted values, meaning
-    python AnfatecSXMWriter.py dnc             # one SXM window
-    python AnfatecSXMWriter.py dnc.tc          # one parameter with all its options
+    python -m sxm_anfatec.writer                 # every parameter: name, value, accepted values, meaning
+    python -m sxm_anfatec.writer dnc             # one SXM window
+    python -m sxm_anfatec.writer dnc.tc          # one parameter with all its options
 
-    from AnfatecSXMWriter import AnfatecSXMWriter
+    from sxm_anfatec import AnfatecSXMWriter
     w = AnfatecSXMWriter()
     print(w.table())                           # same table; w.table('dnc') for one window
     w.dnc                                      # same, attribute style (tab-completes in IPython / Jupyter)
@@ -47,9 +47,7 @@ lock-in phases). That proves SXM's GUI took the value, not that the hardware fol
 check that once per field on the instrument. A button press has nothing to read back:
 its caller checks the effect (``Auto`` changes the phase).
 
-Master copy: anfatec_code/AnfatecSXMWriter.py in the author's development folder.
-sxm_ncafm_control ships a copy next to its copy of AnfatecSXMBridge.py; make
-changes in the master, not in the copy.
+Part of sxm_anfatec (https://github.com/Ex-libris/sxm_anfatec).
 """
 from __future__ import annotations
 
@@ -60,12 +58,8 @@ import time
 from collections.abc import Mapping
 from typing import Any
 
-try:                                   # inside a package (sxm_ncafm_control)
-    from .AnfatecSXMBridge import (AnfatecSXMBridge, Control, SXMBridgeError, SXMPathError, SECTIONS, _ULONG_PTR,
-                                   _find_section, _norm, _num, _parent, _snake, _text, _user32, _walk, SMTO_ABORTIFHUNG)
-except ImportError:                    # stand-alone, next to AnfatecSXMBridge.py
-    from AnfatecSXMBridge import (AnfatecSXMBridge, Control, SXMBridgeError, SXMPathError, SECTIONS, _ULONG_PTR,
-                                  _find_section, _norm, _num, _parent, _snake, _text, _user32, _walk, SMTO_ABORTIFHUNG)
+from .bridge import (AnfatecSXMBridge, Control, SXMBridgeError, SXMPathError, SECTIONS, _ULONG_PTR,
+                     _find_section, _norm, _num, _parent, _snake, _text, _user32, _walk, SMTO_ABORTIFHUNG)
 
 __all__ = ['AnfatecSXMWriter', 'SXMWriteError', 'PARAMS', 'GROUPS', 'EDIT_COMMIT', 'TOLERANCE', 'VERIFIED', 'Param', 'Group', 'main']
 
@@ -657,24 +651,24 @@ _KINDS = {'edit': 'number field', 'combo': 'dropdown', 'check': 'tick box', 'cho
           'button': 'button'}
 
 _USAGE = """examples:
-  python AnfatecSXMWriter.py                       every parameter: value, accepted values, meaning
-  python AnfatecSXMWriter.py dnc                   one window (groups: {groups})
-  python AnfatecSXMWriter.py dnc.tc                one parameter, with all its options
-  python AnfatecSXMWriter.py dnc.tc "3 ms"         show what would be sent (nothing is sent)
-  python AnfatecSXMWriter.py dnc.tc "3 ms" --apply
-  python AnfatecSXMWriter.py z.feedback_off on --apply
-  python AnfatecSXMWriter.py dnc.drive 0.5 --commit enter --apply
-  python AnfatecSXMWriter.py lockin.lia1_auto press --apply"""
+  python -m sxm_anfatec.writer                       every parameter: value, accepted values, meaning
+  python -m sxm_anfatec.writer dnc                   one window (groups: {groups})
+  python -m sxm_anfatec.writer dnc.tc                one parameter, with all its options
+  python -m sxm_anfatec.writer dnc.tc "3 ms"         show what would be sent (nothing is sent)
+  python -m sxm_anfatec.writer dnc.tc "3 ms" --apply
+  python -m sxm_anfatec.writer z.feedback_off on --apply
+  python -m sxm_anfatec.writer dnc.drive 0.5 --commit enter --apply
+  python -m sxm_anfatec.writer lockin.lia1_auto press --apply"""
 
 
 def main(argv: list | None = None) -> None:
-    """Command line: list, describe or set parameters (see ``python AnfatecSXMWriter.py -h``)."""
+    """Command line: list, describe or set parameters (see ``python -m sxm_anfatec.writer -h``)."""
     import argparse
     import sys
 
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(errors='replace')        # captions with '±', 'µ' on any console
-    ap = argparse.ArgumentParser(prog='AnfatecSXMWriter.py', description='List, inspect or set SXM GUI parameters.',
+    ap = argparse.ArgumentParser(prog='python -m sxm_anfatec.writer', description='List, inspect or set SXM GUI parameters.',
                                  epilog=_USAGE.format(groups=', '.join(GROUPS)),
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('name', nargs='?', help='group (dnc) or parameter (dnc.tc); omit to list everything')

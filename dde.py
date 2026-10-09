@@ -42,12 +42,7 @@ class RealDDEClient(BaseDDE):
 
     def __init__(self, app_name: str = "SXM", topic: str = "Remote") -> None:
         super().__init__()
-        try:
-            import SXMRemote  # type: ignore
-        except ImportError as e:
-            raise ImportError(
-                "SXMRemote.py not found. Put it next to this module or in PYTHONPATH."
-            ) from e
+        from . import sxm_remote as SXMRemote  # importing it opens a DDE conversation (raises if SXM is closed)
 
         self._dde = SXMRemote.DDEClient(app_name, topic)
         self._command_count = 0

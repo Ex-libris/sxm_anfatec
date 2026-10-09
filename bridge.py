@@ -5,7 +5,7 @@ read-only query messages (WM_GETTEXT, BM_GETCHECK, CB_GETCURSEL, ...). No
 clicks, keystrokes, WM_SETTEXT, DDE, IOCTL, driver access, injection or
 process-memory access.
 
-    from AnfatecSXMBridge import AnfatecSXMBridge
+    from sxm_anfatec import AnfatecSXMBridge
     sxm = AnfatecSXMBridge()
     sxm.scan.range                      # live read of the Scan section
     sxm.amplitude.ki
@@ -22,15 +22,13 @@ top-to-bottom), never by HWND or current value. With ``strict=True``
 (default) a missing form, a changed layout, an empty required field, or an
 unparseable status raises SXMBridgeError instead of returning a guess.
 
-Run ``python AnfatecSXMBridge.py`` to print and save a snapshot, or
-``python AnfatecSXMBridgeMonitor.py`` for a live view.
+Run ``python -m sxm_anfatec.bridge`` to print and save a snapshot, or
+``python -m sxm_anfatec.monitor`` for a live view.
 
 ``sxm.control(path)`` locates the control behind a path without touching it;
 AnfatecSXMWriter uses it to write the same paths this module reads.
 
-Master copy: anfatec_code/AnfatecSXMBridge.py in the author's development
-folder. sxm_ncafm_control ships a copy, updated from the master; make changes
-in the master, not in the copy.
+Part of sxm_anfatec (https://github.com/Ex-libris/sxm_anfatec).
 """
 from __future__ import annotations
 

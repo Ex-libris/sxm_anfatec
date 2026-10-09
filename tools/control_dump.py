@@ -1,5 +1,5 @@
 """
-sxm_control_dump.py
+control_dump.py  (python -m sxm_anfatec.tools.control_dump)
 
 PASSIVE diagnostic for Anfatec Femto_28_4.exe.
 
