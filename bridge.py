@@ -420,12 +420,23 @@ class Win32Backend:
         return dict(zip(('Kp', 'Ki'), map(_edit, edits)))
 
     def _locate_zcontrol(self) -> dict:
+        # 'Feedback Off' is found by its caption, so it keeps working on a window with more (or fewer)
+        # controls than the layout seen here. The three numbers carry no caption and are identified by
+        # position (dz, dz per Mouse Tick, Slew Rate, top to bottom): if the count differs they are left
+        # out rather than guessed, since writing the wrong one moves the tip.
         f = _form('TzControlForm')
         edits, boxes = _direct(f, 'TEdit'), _direct(f, 'TCheckBox')
-        if len(edits) != 3 or len(boxes) != 1:
-            raise RuntimeError('zControl layout changed')
-        dz, per_tick, slew = map(_edit, edits)
-        return {'Feedback Off': _check(boxes[0]), 'dz': dz, 'dz per Mouse Tick': per_tick, 'Slew Rate': slew}
+        off = [h for h in boxes if _norm(_text(h)) == 'feedback off']
+        if not off:                              # also look deeper: it may sit on a panel of its own
+            off = [h for h in _children(f) if _cls(h) == 'TCheckBox' and _norm(_text(h)) == 'feedback off']
+        if len(off) != 1:
+            raise RuntimeError(f'zControl layout changed: expected one "Feedback Off" tick box, found '
+                               f'{len(off)} among {[_text(h) for h in _children(f) if _cls(h) == "TCheckBox"]} '
+                               f'({len(edits)} number fields directly on the form)')
+        out = {'Feedback Off': _check(off[0]), 'dz': None, 'dz per Mouse Tick': None, 'Slew Rate': None}
+        if len(edits) == 3:
+            out.update(zip(('dz', 'dz per Mouse Tick', 'Slew Rate'), map(_edit, edits)))
+        return out
 
     def _locate_spectroscopy(self) -> dict:
         f = _form('TSpektForm')
