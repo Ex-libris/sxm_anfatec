@@ -560,11 +560,14 @@ class Win32Backend:
 
         edits = sorted(of('TEdit'), key=_top)
         status = of('TStatusBar')
+        range_buttons = of('TGroupButton')
+        if not range_buttons:
+            raise RuntimeError('DNC Range (output gain) buttons not found: GUI layout may have changed')
         return {
             'Input Gain InA': _choice(of('TRadioButton')),
             'TimeConstant': combo_in('TimeConstant t'),
             'RollOff': combo_in('RollOff'),
-            'Range': _choice(of('TGroupButton')),
+            'Range': _choice(range_buttons),             # None when no button is selected (see SECTIONS)
             'Status': _text(status[0]) if status else '',
             'unmapped_numeric_controls': [{'value': _edit(h), 'rect': _rect(h)} for h in edits],
         }
@@ -659,6 +662,11 @@ def parse_dnc_status(status: str) -> dict:
     return out
 
 
+# Consumers can test for this behaviour: True = a DNC Range group with no button selected reads None instead
+# of making the strict bridge refuse the whole DNC window (2026-11-06).
+DNC_RANGE_MAY_BE_UNSELECTED = True
+
+
 def _add_dnc_status(data: dict, strict: bool) -> dict:
     """Add q, f_peak, tau_us from the DNC status bar.
 
@@ -705,8 +713,11 @@ SECTIONS = (
           ('X', 'Y', 'Delay1', 'AguT', 'dz', 'U Start', 'U Stop', 'Mode', 'Acquire')),
     _Spec('Spectroscopy Options', 'spectroscopy_options', 'spectroscopy_options',
           ('DataPoints', 'Cycle', 'N', 'Lead In and Out', 'DeadTime')),
+    # 'Range' (output gain) is not required: after a Drive change SXM auto-ranges it, and with the Drive at 0
+    # it can leave NO button selected (seen on the instrument 2026-11-06). Range then reads None; that its
+    # buttons exist at all is checked in _locate_dynamic_non_contact (a layout change still raises).
     _Spec('Dynamic Non-Contact R / Phi', 'dynamic', 'dynamic_non_contact',
-          ('Input Gain InA', 'TimeConstant', 'RollOff', 'Range', 'Status', 'unmapped_numeric_controls'),
+          ('Input Gain InA', 'TimeConstant', 'RollOff', 'Status', 'unmapped_numeric_controls'),
           _add_dnc_status, ('dnc',)),
     _Spec('Feedback mode', 'feedback', 'feedback_mode', ('Mode',)),
     _Spec('Scanner', 'scanner', 'scanner_state', ('caption',)),
