@@ -660,7 +660,17 @@ def parse_dnc_status(status: str) -> dict:
 
 
 def _add_dnc_status(data: dict, strict: bool) -> dict:
+    """Add q, f_peak, tau_us from the DNC status bar.
+
+    An EMPTY status bar is a normal state, not a layout change: SXM fills it only after its first resonance
+    sweep (it is blank after a restart). Then q, f_peak, tau_us are None and the rest of the DNC window
+    (Drive, use, TimeConstant, ...) still reads, in strict mode too. A status that is there but cannot be
+    parsed still raises in strict mode.
+    """
     data = dict(data)
+    if not str(data.get('Status') or '').strip():
+        data.update(dict.fromkeys(('q', 'f_peak', 'tau_us')))
+        return data
     try:
         data.update(parse_dnc_status(data.get('Status', '')))
     except SXMBridgeError:
