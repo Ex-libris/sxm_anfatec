@@ -946,11 +946,27 @@ class AnfatecSXMBridge:
 
     # -- snapshots and discovery --
 
-    def snapshot(self) -> dict:
+    def selected_point(self) -> dict:
+        """Optional, passive read of the highlighted Point in the Select window."""
+        try:
+            from .selected_point import read_selection
+            return read_selection()
+        except Exception as exc:
+            raise SXMBridgeError(f'Select: {exc}') from exc
+
+    def snapshot(self, include_selection: bool = False) -> dict:
         """All sections at once. In strict mode any failing section raises; otherwise it is recorded as ``_error``."""
-        return {'timestamp': datetime.datetime.now().astimezone().isoformat(timespec='seconds'),
+        result = {'timestamp': datetime.datetime.now().astimezone().isoformat(timespec='seconds'),
                 'source': TARGET_EXE, 'backend': BACKEND,
                 'parameters': self._read_all(self.strict)}
+        if include_selection:
+            try:
+                result['parameters']['Select'] = self.selected_point()
+            except SXMBridgeError as exc:
+                if self.strict:
+                    raise
+                result['parameters']['Select'] = {'_error': str(exc)}
+        return result
 
     def save_snapshot(self, path: str | None = None, snapshot: dict | None = None) -> str:
         """Write ``snapshot`` (or a fresh one) as JSON; returns the absolute path."""
