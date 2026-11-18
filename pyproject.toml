@@ -20,4 +20,4 @@ package-dir = {"sxm_anfatec" = "."}
 packages = ["sxm_anfatec", "sxm_anfatec.tools", "sxm_anfatec.examples"]
 
 [tool.setuptools.package-data]
-sxm_anfatec = ["PARAMETERS.md", "VERSION"]
+sxm_anfatec = ["PARAMETERS.md", "VERSION", "SXM Metadata.vbs", "AUTOMATIC_RECORDING.md", "WORKFLOW.md", "RECORDER.md", "SPECTROSCOPY_METADATA.md", "STOP_AND_RESTART.md", "HOW_IT_WORKS.md"]

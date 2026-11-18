@@ -83,3 +83,13 @@ measurement.
   Lia1 frequency and phase (Enter needed). Watch the first Enter write into each window
   not used this way yet: in Delphi, Enter can also trigger a window's default button.
 - `dde`, `driver`: used on the instrument by sxm_ncafm_control.
+
+## Automatic spectroscopy metadata recording
+
+On the instrument PC, double-click **SXM Metadata.vbs** and choose **Enable / restart automatic recording** once per Windows account. Then open SXM, choose any data folder and measure normally. Folder discovery, reconnects and recorder restarts run in the background. Original files remain read-only; enriched copies have spectroscopy-type names in an `enriched` subfolder.
+
+See [AUTOMATIC_RECORDING.md](AUTOMATIC_RECORDING.md) for setup, recovery and current capture limitations.
+
+User controls: [Stop and restart](STOP_AND_RESTART.md), including a complete stop
+that disables automatic relaunch and verifies shutdown.
+[How it works](HOW_IT_WORKS.md) explains capture, file locations, recovery and limitations.
