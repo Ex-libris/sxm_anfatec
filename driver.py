@@ -98,7 +98,12 @@ CHANNELS = {
     
     # ---- NC-AFM Control Channels ----
     'Frequency':  ( -9, 'DAC9',    'Hz',  0.00232831),   # Cantilever drive frequency
-    'Drive':      (-10, 'DAC10',    'V',  4.97789e-09),  # Cantilever drive amplitude
+    # Drive: calibrated at the DNC output gain +-0.1 V, so values match SXM's own Drive display. The previous
+    # factor 4.97789e-09 read 11.214 x too high there: the sxm_ncafm_control Sensor Characterisation drive echo
+    # (DAC10 / commanded DNC drive, 6 Nov 2026) and SXM's oscilloscope (9 Nov 2026: 560.7 vs 50 uV with the AFL
+    # off, 10.25 vs 0.92 uV with it on) agree. Not verified at +-1 V or +-10 V: the DAC mirror may scale with the
+    # output range there.
+    'Drive':      (-10, 'DAC10',    'V',  4.43892e-10),  # Cantilever drive amplitude (excitation when AFL on)
     'QPlusAmpl':  (-12, 'DAC12',    'V',  3.64244e-09),  # qPlus amplitude signal
     'Phase':      (-13, 'DAC13',    '°',  0.001),        # Phase between drive and response
     
